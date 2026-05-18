@@ -33,12 +33,20 @@ def scrape(req: ScrapeRequest):
     viewport = {"width": 390, "height": 844} if req.mobile else {"width": 1280, "height": 800}
 
     try:
+        mobile_ua = (
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        )
+
         with Camoufox(headless=True) as browser:
-            context = browser.new_context(
-                viewport=viewport,
-                extra_http_headers=req.headers or {},
-                is_mobile=req.mobile or False,
-            )
+            ctx_args = {
+                "viewport": viewport,
+                "extra_http_headers": req.headers or {},
+            }
+            if req.mobile:
+                ctx_args["user_agent"] = mobile_ua
+
+            context = browser.new_context(**ctx_args)
             page = context.new_page()
             page.set_default_timeout(req.timeout)
 
