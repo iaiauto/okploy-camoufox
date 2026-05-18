@@ -11,10 +11,10 @@ class ScrapeRequest(BaseModel):
     url: str
     headers: Optional[dict] = None
     mobile: Optional[bool] = False
-    wait_for: Optional[str] = "networkidle"   # networkidle | load | domcontentloaded
+    wait_for: Optional[str] = "load"        # load | domcontentloaded | networkidle
     wait_for_selector: Optional[str] = None
     scroll_to_bottom: Optional[bool] = False
-    timeout: Optional[int] = 30000            # ms
+    timeout: Optional[int] = 30000          # ms
 
 
 class ScrapeResponse(BaseModel):
@@ -32,12 +32,12 @@ def health():
 def scrape(req: ScrapeRequest):
     viewport = {"width": 390, "height": 844} if req.mobile else {"width": 1280, "height": 800}
 
-    try:
-        mobile_ua = (
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
-            "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-        )
+    mobile_ua = (
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+        "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    )
 
+    try:
         with Camoufox(headless=True) as browser:
             ctx_args = {
                 "viewport": viewport,
@@ -50,7 +50,7 @@ def scrape(req: ScrapeRequest):
             page = context.new_page()
             page.set_default_timeout(req.timeout)
 
-            response = page.goto(req.url, wait_until=req.wait_for, timeout=req.timeout)
+            page.goto(req.url, wait_until=req.wait_for, timeout=req.timeout)
 
             if req.wait_for_selector:
                 page.wait_for_selector(req.wait_for_selector, timeout=req.timeout)
@@ -59,18 +59,20 @@ def scrape(req: ScrapeRequest):
                 page.evaluate("""
                     () => new Promise(resolve => {
                         let total = 0;
+                        let iterations = 0;
+                        const maxIterations = 50;
                         const step = 300;
                         const timer = setInterval(() => {
                             window.scrollBy(0, step);
                             total += step;
-                            if (total >= document.body.scrollHeight) {
+                            iterations++;
+                            if (total >= document.body.scrollHeight || iterations >= maxIterations) {
                                 clearInterval(timer);
                                 resolve();
                             }
                         }, 100);
                     })
                 """)
-                page.wait_for_load_state("networkidle")
 
             html = page.content()
             final_url = page.url
