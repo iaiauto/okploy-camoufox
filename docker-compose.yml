@@ -1,0 +1,30 @@
+services:
+  camoufox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${CAMOUFOX_PORT:-8000}:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
+    shm_size: "512mb"           # Firefox requires shared memory
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    volumes:
+      - camoufox_cache:/root/.cache/camoufox   # persist downloaded browser binary
+
+volumes:
+  camoufox_cache:
